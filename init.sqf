@@ -1,0 +1,211 @@
+sleep 0.001;
+
+removeRangefinderArray = {
+	private "_remove";
+	_remove = _this findIf { (_x # 0) == "Rangefinder" };
+	if (_remove > -1) then {
+		_this deleteAt _remove;
+	};
+};
+addWeaponsToArray = {
+	params ["_obj", "_weapons"];
+	{ _weapons pushBack _x } forEach (weaponsItems _obj);
+	clearWeaponCargoGlobal _obj;
+};
+addWeaponsToCargo = {
+	params ["_weapons", "_vehicle"];
+	private ["_snapshot", "_output", "_return", "_remove"];
+	_return = [];
+	_remove = [];
+	{
+		_output = [_x, _vehicle] call addWeaponToCargoWithOutput;
+		if (_output) then {
+			_remove pushBack _x;
+		};
+	} forEach _weapons;
+	{
+		_weapons deleteAt (_weapons find _x);
+	} forEach _remove;
+	_weapons;
+};
+addWeaponToCargoWithOutput = {
+	params ["_weapon", "_vehicle"];
+	private ["_snapshot", "_countBefore", "_countAfter"];
+	_snapshot = weaponsItemsCargo _vehicle;
+	_countBefore = { _weapon isEqualTo _x } count _snapshot;
+	_vehicle addWeaponWithAttachmentsCargoGlobal [_weapon, 1];
+	_countAfter = { _weapon isEqualTo _x } count weaponsItemsCargo _vehicle;
+	_countBefore != _countAfter;
+};
+popFront = {
+	_this deleteAt 0;
+};
+lootBody = {
+	params ["_unit", "_body"];
+	private ["_currentWeapons", "_heldWeapons", "_holder"];
+	_currentWeapons = _body getVariable ["DE_HELD_WEAPONS", []];
+	_heldWeapons = weaponsItems _body;
+	_heldWeapons apply { _unit removeWeaponGlobal (_x # 0); };
+	_holder = nearestObject [getPosATL _body, "WeaponHolderSimulated"];
+	if (!(isNull _holder)) then {
+		[_holder, _heldWeapons] call addWeaponsToArray;
+		//hint str _heldWeapons;
+	};
+	_currentWeapons append _heldWeapons;
+	_unit setVariable ["DE_HELD_WEAPONS", _currentWeapons];
+};
+canLootBody = {
+	params ["_unit", "_body"];
+	private "_output";
+	_output = false;
+	if (!alive _body) then {
+		if (_unit getVariable ["DE_HELD_WEAPONS", []] isEqualTo []) then {
+			_output = true;
+		} else {
+			systemChat "Unit aleady has loot from another body";
+		};
+	} else {
+		systemChat "Alive man will not let you loot him";
+	};
+	_output;
+};
+unitHasLoot = {
+	private "_output";
+	_output = true;
+	if (_this getVariable ["DE_HELD_WEAPONS", []] isEqualTo []) then {
+		_output = false;
+	} else {
+		systemChat "unitHasLoot: Unit already has loot";
+	};
+	_output;
+};
+unitHasNoLoot = { !(_this call unitHasLoot); };
+isTargetLiving = {
+	private "_output";
+	_output = true;
+	if (alive _this) then {
+		systemChat "isTargetLiving: Alive target will not let you loot them";
+	} else {
+		_output = false;
+	};
+	_output;
+};
+isTargetDead = { !(_this call isTargetLiving); };
+unitLootBody = {
+	params ["_unit", "_body"];
+	_relativeDir = _body getDir _unit;
+	_pos = cursorTarget getPos [1, _relativeDir];
+	//systemChat str _pos;
+	_unit doMove _pos;
+	waitUntil {moveToCompleted _unit};
+	_unit setFormDir (_unit getDir _body);
+	doStop _unit;
+	_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
+	sleep 1;
+	[_unit, _body] call lootBody;
+	_unit setFormDir (_unit getDir player);
+	_unit doFollow player;
+};
+
+player addAction ["Loot nearby dead soldiers (instant)", {
+	DEBUG = 6;
+	[] spawn {
+	{
+		if (_x distance player < 30) then {
+			if (!alive _x) then {
+				if (_x != player) then {
+					_unit = _x;
+					_currentWeapons = _unit getVariable ["DE_HELD_WEAPONS", []];
+					//Get units weapons
+					_heldWeapons = weaponsItems _unit;
+					hint str _heldWeapons;
+					//waitUntil {DEBUG == 1};
+					
+					//_heldWeapons call removeRangefinderArray;
+					//hint str _heldWeapons;
+					//waitUntil {DEBUG == 2};
+					
+					
+					//delete weapons from unit
+					_heldWeapons apply { _unit removeWeaponGlobal (_x # 0); };
+					//waitUntil {DEBUG == 3};
+					
+					//Find closest weapon holder
+					_holder = nearestObject [getPosATL _x, "WeaponHolderSimulated"];
+					//if (isNull _holder) then { //doesn't work for whatever reason - maybe not necessary anyway
+					//	//if no simulated (dead unit dropped), look for player dropped weapons
+					//	_holder = nearestObject [getPosATL _x, "WeaponHolderSimulated"];
+					//};
+					
+					if (!(isNull _holder)) then {
+						[_holder, _heldWeapons] call addWeaponsToArray;
+						hint str _heldWeapons;
+						//waitUntil {DEBUG == 4};
+					};
+					//systemChat str _heldWeapons;
+					
+					//save weapons to unit object
+					_currentWeapons append _heldWeapons;
+					hint str _currentWeapons;
+					//waitUntil {DEBUG == 5};
+					_unit setVariable ["DE_HELD_WEAPONS", _currentWeapons];
+
+					//add weapons from unit object to vehicle cargo
+					_bringThemBack = _unit getVariable ["DE_HELD_WEAPONS", []];
+					hint str _bringThemBack;
+					waitUntil {DEBUG == 6};
+					
+					_result = [_bringThemBack, vehicle player] call addWeaponsToCargo;
+					hint str _result;
+					//waitUntil {DEBUG == 7};
+
+					_unit setVariable ["DE_HELD_WEAPONS", _result];
+				};
+			};
+		};
+	} forEach (entities [["Man"], [], true, false]);
+	systemChat "Script end";
+	};
+}, nil, 0, false, true, ""]; //"vehicle player != player"];
+player addAction ["Order squad to move here", {
+	_unit = (units b # 1);
+	_pos = screenToWorld [0.5, 0.5];
+	systemChat str _pos;
+	_unit doMove _pos;
+	waitUntil {moveToCompleted _unit};
+	doStop _unit;
+	_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
+	_unit doFollow player;
+}, nil, 1, false, true];
+player addAction ["Mess with body", {
+	_unit = b;
+	if (_unit call unitHasNoLoot) then {
+		_body = cursorTarget;
+		_relativeDir = _body getDir _unit;
+		_pos = cursorTarget getPos [1, _relativeDir];
+		//systemChat str _pos;
+		_unit doMove _pos;
+		waitUntil {moveToCompleted _unit};
+		_unit setFormDir (_unit getDir _body);
+		doStop _unit;
+		if (_body call isTargetDead) then {
+			_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
+			sleep 1;
+			[_unit, _body] call lootBody;
+			_unit setFormDir (_unit getDir player);
+			_unit doFollow player;
+		} else {
+			_unit groupRadio "SentSupportNotAvailable"
+		};
+	} else {
+		_unit groupRadio "SentSupportNotAvailable"
+	};
+}, nil, 1, false, true];
+
+
+[["hgun_Rook40_F","","","",["16Rnd_9x21_Mag",16],[],""],
+["arifle_Katiba_ACO_pointer_F","","acc_pointer_IR","optic_ACO_grn",["30Rnd_65x39_caseless_green",30],[],""],
+["arifle_Katiba_ACO_pointer_F","","acc_pointer_IR","optic_ACO_grn",["30Rnd_65x39_caseless_green",30],[],""],
+["hgun_Rook40_F","","","",["16Rnd_9x21_Mag",16],[],""],
+["arifle_Katiba_ACO_pointer_F","","acc_pointer_IR","optic_ACO_grn",["30Rnd_65x39_caseless_green",30],[],""],
+["hgun_Rook40_F","","","",["16Rnd_9x21_Mag",16],[],""]]
