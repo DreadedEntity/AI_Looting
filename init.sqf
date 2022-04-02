@@ -169,8 +169,17 @@ player addAction ["Loot nearby dead soldiers (instant)", {
 	};
 }, nil, 0, false, true, ""]; //"vehicle player != player"];
 
-player addAction ["Mess with body", {
-	[units player # 1, cursorTarget] call unitLootBody;
+player addAction ["Loot all bodies", {
+	_unit = units player # 1;
+	//unit does not act realistically; simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
+	//still fun as hell to watch though
+	_list = (entities [["Man"], [], true, false]) apply { [_unit distance _x, _x] };
+	_list sort true;
+	{
+		if (!alive (_x # 1)) then {
+			[_unit, _x # 1] call unitLootBody;
+		};
+	} forEach _list;
 }, nil, 1, false, true];
 
 
