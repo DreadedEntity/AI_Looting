@@ -168,16 +168,7 @@ player addAction ["Loot nearby dead soldiers (instant)", {
 	systemChat "Script end";
 	};
 }, nil, 0, false, true, ""]; //"vehicle player != player"];
-player addAction ["Order squad to move here", {
-	_unit = (units b # 1);
-	_pos = screenToWorld [0.5, 0.5];
-	systemChat str _pos;
-	_unit doMove _pos;
-	waitUntil {moveToCompleted _unit};
-	doStop _unit;
-	_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
-	_unit doFollow player;
-}, nil, 1, false, true];
+
 player addAction ["Mess with body", {
 	[units player # 1, cursorTarget] call unitLootBody;
 }, nil, 1, false, true];
