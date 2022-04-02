@@ -15,7 +15,6 @@ addWeaponsToArray = {
 addWeaponsToCargo = {
 	params ["_weapons", "_vehicle"];
 	private ["_snapshot", "_output", "_return", "_remove"];
-	_return = [];
 	_remove = [];
 	{
 		_output = [_x, _vehicle] call addWeaponToCargoWithOutput;
@@ -49,7 +48,6 @@ lootBody = {
 	_holder = nearestObject [getPosATL _body, "WeaponHolderSimulated"];
 	if (!(isNull _holder)) then {
 		[_holder, _heldWeapons] call addWeaponsToArray;
-		//hint str _heldWeapons;
 	};
 	_currentWeapons append _heldWeapons;
 	_unit setVariable ["DE_HELD_WEAPONS", _currentWeapons];
@@ -96,7 +94,6 @@ unitLootBody = {
 	private ["_relativeDir", "_pos"];
 	_relativeDir = _body getDir _unit;
 	_pos = _body getPos [1, _relativeDir];
-	//systemChat str _pos;
 	_unit doMove _pos;
 	waitUntil {moveToCompleted _unit};
 	_unit setFormDir (_unit getDir _body);
@@ -106,6 +103,17 @@ unitLootBody = {
 	[_unit, _body] call lootBody;
 	_unit setFormDir (_unit getDir player);
 	_unit doFollow player;
+};
+unitDropOffLoot = {
+	params ["_unit", "_vehicle"];
+	private "_result";
+	_unit doMove (getPosATL _vehicle);
+	waitUntil {moveToCompleted _unit};
+	_unit playMove "AinvPercMstpSnonWnonDnon_Putdown_AmovPercMstpSnonWnonDnon";
+	sleep 1;
+	_result = [_unit getVariable ["DE_HELD_WEAPONS", []], _vehicle] call addWeaponsToCargo;
+	_unit setVariable ["DE_HELD_WEAPONS", _result]; //currently uncessesary because the "add_" command ignores cargo amount and will always be able to add all weapons. eg _result is always [] afterward
+	//possible workaround, use infinite "add_" command to add item to unit's backpack, then make unit "drop" action the item into the vehicle
 };
 
 player addAction ["Loot nearby dead soldiers (instant)", {
@@ -171,13 +179,16 @@ player addAction ["Loot nearby dead soldiers (instant)", {
 
 player addAction ["Loot all bodies", {
 	_unit = units player # 1;
-	//unit does not act realistically; simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
+	//unit does not act realistically in some situations, depending on how the bodies are arranged relative to the start position
+	//simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
 	//still fun as hell to watch though
+	//recalculate list every iteration?? seems costly - look for alternative
 	_list = (entities [["Man"], [], true, false]) apply { [_unit distance _x, _x] };
 	_list sort true;
 	{
 		if (!alive (_x # 1)) then {
 			[_unit, _x # 1] call unitLootBody;
+			[_unit, vehicle player] call unitDropOffLoot;
 		};
 	} forEach _list;
 }, nil, 1, false, true];
