@@ -93,8 +93,9 @@ isTargetLiving = {
 isTargetDead = { !(_this call isTargetLiving); };
 unitLootBody = {
 	params ["_unit", "_body"];
+	private ["_relativeDir", "_pos"];
 	_relativeDir = _body getDir _unit;
-	_pos = cursorTarget getPos [1, _relativeDir];
+	_pos = _body getPos [1, _relativeDir];
 	//systemChat str _pos;
 	_unit doMove _pos;
 	waitUntil {moveToCompleted _unit};
@@ -178,28 +179,7 @@ player addAction ["Order squad to move here", {
 	_unit doFollow player;
 }, nil, 1, false, true];
 player addAction ["Mess with body", {
-	_unit = b;
-	if (_unit call unitHasNoLoot) then {
-		_body = cursorTarget;
-		_relativeDir = _body getDir _unit;
-		_pos = cursorTarget getPos [1, _relativeDir];
-		//systemChat str _pos;
-		_unit doMove _pos;
-		waitUntil {moveToCompleted _unit};
-		_unit setFormDir (_unit getDir _body);
-		doStop _unit;
-		if (_body call isTargetDead) then {
-			_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
-			sleep 1;
-			[_unit, _body] call lootBody;
-			_unit setFormDir (_unit getDir player);
-			_unit doFollow player;
-		} else {
-			_unit groupRadio "SentSupportNotAvailable"
-		};
-	} else {
-		_unit groupRadio "SentSupportNotAvailable"
-	};
+	[units player # 1, cursorTarget] call unitLootBody;
 }, nil, 1, false, true];
 
 
