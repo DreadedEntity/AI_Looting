@@ -91,7 +91,7 @@ isTargetLiving = {
 isTargetDead = { !(_this call isTargetLiving); };
 unitLootBody = {
 	params ["_unit", "_body"];
-	private ["_relativeDir", "_pos"];
+	private ["_relativeDir", "_pos", "_leader"];
 	_relativeDir = _body getDir _unit;
 	_pos = _body getPos [1, _relativeDir];
 	_unit doMove _pos;
@@ -101,8 +101,9 @@ unitLootBody = {
 	_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
 	sleep 1;
 	[_unit, _body] call lootBody;
-	_unit setFormDir (_unit getDir player);
-	_unit doFollow player;
+	_leader = leader _unit;
+	_unit setFormDir (_unit getDir _leader);
+	_unit doFollow _leader;
 };
 unitDropOffLoot = {
 	params ["_unit", "_vehicle"];
@@ -115,6 +116,8 @@ unitDropOffLoot = {
 	_result = [_unit getVariable ["DE_HELD_WEAPONS", []], _vehicle] call addWeaponsToCargo;
 	_unit setVariable ["DE_HELD_WEAPONS", _result]; //currently uncessesary because the "add_" command ignores cargo amount and will always be able to add all weapons. eg _result is always [] afterward
 	//possible workaround, use infinite "add_" command to add item to unit's backpack, then make unit "drop" action the item into the vehicle
+	// ^ won't work because drop action can only work with currently held weapons in a slot - would be too slow
+	//will have to go custom - get vehicle max load from config, calculate weight of cargo content and decide
 };
 
 player addAction ["Loot all bodies", {
