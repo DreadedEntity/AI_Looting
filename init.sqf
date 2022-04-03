@@ -97,7 +97,7 @@ unitLootBody = {
 	_unit doMove _pos;
 	waitUntil {moveToCompleted _unit};
 	_unit setFormDir (_unit getDir _body);
-	doStop _unit;
+	doStop _unit; //stop here prevents unit from making radio messages after doMove
 	_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
 	sleep 1;
 	[_unit, _body] call lootBody;
@@ -109,73 +109,13 @@ unitDropOffLoot = {
 	private "_result";
 	_unit doMove (getPosATL _vehicle);
 	waitUntil {moveToCompleted _unit};
+	doStop _unit; //stop here prevents unit from making radio messages after doMove
 	_unit playMove "AinvPercMstpSnonWnonDnon_Putdown_AmovPercMstpSnonWnonDnon";
 	sleep 1;
 	_result = [_unit getVariable ["DE_HELD_WEAPONS", []], _vehicle] call addWeaponsToCargo;
 	_unit setVariable ["DE_HELD_WEAPONS", _result]; //currently uncessesary because the "add_" command ignores cargo amount and will always be able to add all weapons. eg _result is always [] afterward
 	//possible workaround, use infinite "add_" command to add item to unit's backpack, then make unit "drop" action the item into the vehicle
 };
-
-player addAction ["Loot nearby dead soldiers (instant)", {
-	DEBUG = 6;
-	[] spawn {
-	{
-		if (_x distance player < 30) then {
-			if (!alive _x) then {
-				if (_x != player) then {
-					_unit = _x;
-					_currentWeapons = _unit getVariable ["DE_HELD_WEAPONS", []];
-					//Get units weapons
-					_heldWeapons = weaponsItems _unit;
-					hint str _heldWeapons;
-					//waitUntil {DEBUG == 1};
-					
-					//_heldWeapons call removeRangefinderArray;
-					//hint str _heldWeapons;
-					//waitUntil {DEBUG == 2};
-					
-					
-					//delete weapons from unit
-					_heldWeapons apply { _unit removeWeaponGlobal (_x # 0); };
-					//waitUntil {DEBUG == 3};
-					
-					//Find closest weapon holder
-					_holder = nearestObject [getPosATL _x, "WeaponHolderSimulated"];
-					//if (isNull _holder) then { //doesn't work for whatever reason - maybe not necessary anyway
-					//	//if no simulated (dead unit dropped), look for player dropped weapons
-					//	_holder = nearestObject [getPosATL _x, "WeaponHolderSimulated"];
-					//};
-					
-					if (!(isNull _holder)) then {
-						[_holder, _heldWeapons] call addWeaponsToArray;
-						hint str _heldWeapons;
-						//waitUntil {DEBUG == 4};
-					};
-					//systemChat str _heldWeapons;
-					
-					//save weapons to unit object
-					_currentWeapons append _heldWeapons;
-					hint str _currentWeapons;
-					//waitUntil {DEBUG == 5};
-					_unit setVariable ["DE_HELD_WEAPONS", _currentWeapons];
-
-					//add weapons from unit object to vehicle cargo
-					_bringThemBack = _unit getVariable ["DE_HELD_WEAPONS", []];
-					hint str _bringThemBack;
-					waitUntil {DEBUG == 6};
-					
-					_result = [_bringThemBack, vehicle player] call addWeaponsToCargo;
-					hint str _result;
-					//waitUntil {DEBUG == 7};
-
-					_unit setVariable ["DE_HELD_WEAPONS", _result];
-				};
-			};
-		};
-	} forEach (entities [["Man"], [], true, false]);
-	systemChat "Script end";
-	};
-}, nil, 0, false, true, ""]; //"vehicle player != player"];
 
 player addAction ["Loot all bodies", {
 	_unit = units player # 1;
@@ -186,17 +126,11 @@ player addAction ["Loot all bodies", {
 	_list = (entities [["Man"], [], true, false]) apply { [_unit distance _x, _x] };
 	_list sort true;
 	{
-		if (!alive (_x # 1)) then {
-			[_unit, _x # 1] call unitLootBody;
-			[_unit, vehicle player] call unitDropOffLoot;
+		if (!alive (_x # 1)) then { //out of concern and should be handled in a higher scope
+			if (!(weaponsItems _unit isEqualTo []) || {!(_unit getVariable ["DE_HELD_WEAPONS", []] isEqualTo [])}) then { //out of concern and should be handled in a higher scope
+				[_unit, _x # 1] call unitLootBody;
+				[_unit, vehicle player] call unitDropOffLoot;
+			};
 		};
 	} forEach _list;
 }, nil, 1, false, true];
-
-
-[["hgun_Rook40_F","","","",["16Rnd_9x21_Mag",16],[],""],
-["arifle_Katiba_ACO_pointer_F","","acc_pointer_IR","optic_ACO_grn",["30Rnd_65x39_caseless_green",30],[],""],
-["arifle_Katiba_ACO_pointer_F","","acc_pointer_IR","optic_ACO_grn",["30Rnd_65x39_caseless_green",30],[],""],
-["hgun_Rook40_F","","","",["16Rnd_9x21_Mag",16],[],""],
-["arifle_Katiba_ACO_pointer_F","","acc_pointer_IR","optic_ACO_grn",["30Rnd_65x39_caseless_green",30],[],""],
-["hgun_Rook40_F","","","",["16Rnd_9x21_Mag",16],[],""]]
