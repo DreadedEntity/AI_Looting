@@ -1,6 +1,6 @@
 # AI Looting Script Roadmap
 ## ASAP
-~~- Calculate vehicle used cargo to determine if new weapon can be added~~ Not necessary
+- [X] Calculate vehicle used cargo to determine if new weapon can be added
 ~~- Figure out how to pull all items from vehicle cargo~~ Not necessary
 ~~- Function to summate all item weights and return number~~ Not necessary
 - [X] Decide method to store current/last leader vehicle so AI can drop off loot

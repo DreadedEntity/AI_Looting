@@ -18,7 +18,7 @@ addWeaponsToCargo = {
 		_output = [_x, _vehicle] call addWeaponToCargoWithOutput;
 		if (_output) then {
 			_remove pushBack _x;
-		}
+		};
 	} forEach _weapons;
 	{
 		_weapons deleteAt (_weapons find _x);
@@ -40,8 +40,6 @@ addWeaponToCargoWithOutput = {
 	};
 	_output;
 };
-
-["arifle_MX_GL_ACO_F","","","optic_Aco",["30Rnd_65x39_caseless_mag",30],["1Rnd_HE_Grenade_shell",1],""];
 
 getWeaponLoadArray = {
 	//TODO: clean this garbage up
