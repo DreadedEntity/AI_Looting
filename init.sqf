@@ -1,5 +1,3 @@
-sleep 0.001;
-
 removeRangefinderArray = {
 	private "_remove";
 	_remove = _this findIf { (_x # 0) == "Rangefinder" };
@@ -20,7 +18,7 @@ addWeaponsToCargo = {
 		_output = [_x, _vehicle] call addWeaponToCargoWithOutput;
 		if (_output) then {
 			_remove pushBack _x;
-		};
+		}
 	} forEach _weapons;
 	{
 		_weapons deleteAt (_weapons find _x);
@@ -29,16 +27,78 @@ addWeaponsToCargo = {
 };
 addWeaponToCargoWithOutput = {
 	params ["_weapon", "_vehicle"];
-	private ["_snapshot", "_countBefore", "_countAfter"];
-	_snapshot = weaponsItemsCargo _vehicle;
-	_countBefore = { _weapon isEqualTo _x } count _snapshot;
-	_vehicle addWeaponWithAttachmentsCargoGlobal [_weapon, 1];
-	_countAfter = { _weapon isEqualTo _x } count weaponsItemsCargo _vehicle;
-	_countBefore != _countAfter;
+	private ["_vehicleMaxLoad", "_vehicleCurrentLoad", "_weaponLoad", "_output"];
+	_vehicleMaxLoad = getNumber(configFile >> "CfgVehicles" >> typeOf _vehicle >> "maximumLoad" );
+	_vehicleCurrentLoad = loadAbs _vehicle;
+	_weaponLoad = getNumber(configFile >> "CfgWeapons" >> _weapon # 0 >> "WeaponsSlotsInfo" >> "mass");
+	_weaponLoad = _weapon call getWeaponLoad;
+	_output = (_vehicleMaxLoad - _vehicleCurrentLoad) > _weaponLoad;
+	if (_output) then {
+		_vehicle addWeaponWithAttachmentsCargoGlobal [_weapon, 1];
+	} else {
+		_vehicle setVariable ["DE_FULL_VEHICLE", true];
+	};
+	_output;
 };
-popFront = {
-	_this deleteAt 0;
+
+["arifle_MX_GL_ACO_F","","","optic_Aco",["30Rnd_65x39_caseless_mag",30],["1Rnd_HE_Grenade_shell",1],""];
+
+getWeaponLoadArray = {
+	//TODO: clean this garbage up
+	params ["_weapon", "_muzzle", "_acc", "_optic", "_ammo", "_ammo2", "_bipod"];
+	private ["_weaponLoad", "_muzzleLoad", "_accLoad", "_opticLoad", "_ammoLoad", "_ammo2Load", "_bipodLoad"];
+	//for weapon is CfgVehicles >> weapon >> WeaponSlotsInfo >> mass
+	//for attachment is CfgVehicles >> attachment >> ItemInfo >> mass
+	//for ammo is CfgMagazines >> magazine >> mass
+	_weaponLoad = getNumber (configFile >> "CfgWeapons" >> _weapon >> "WeaponSlotsInfo" >> "mass");
+	if (_muzzle isEqualTo "") then {
+		_muzzleLoad = 0;
+	} else {
+		_muzzleLoad = getNumber (configFile >> "CfgWeapons" >> _muzzle >> "ItemInfo" >> "mass");
+	};
+	if (_acc isEqualTo "") then {
+		_accLoad = 0;
+	} else {
+		_accLoad = getNumber (configFile >> "CfgWeapons" >> _acc >> "ItemInfo" >> "mass");
+	};
+	if (_optic isEqualTo "") then {
+		_opticLoad = 0;
+	} else {
+		_opticLoad = getNumber (configFile >> "CfgWeapons" >> _optic >> "ItemInfo" >> "mass");
+	};
+	if (_ammo isEqualTo []) then {
+		_ammoLoad = 0;
+	} else {
+		_ammoLoad = getNumber (configFile >> "CfgMagazines" >> _ammo # 0 >> "mass");
+	};
+	if (_ammo2 isEqualTo []) then {
+		_ammo2Load = 0;
+	} else {
+		_ammo2Load = getNumber (configFile >> "CfgMagazines" >> _ammo2 # 0 >> "mass");
+	};
+	if (_bipod isEqualTo "") then {
+		_bipodLoad = 0;
+	} else {
+		_bipodLoad = getNumber (configFile >> "CfgWeapons" >> _bipod >> "ItemInfo" >> "mass");
+	};
+	[_weaponLoad, _muzzleLoad, _accLoad, _opticLoad, _ammoLoad, _ammo2Load, _bipodLoad];
 };
+getWeaponLoad = {
+	private "_output";
+	_output = _this call getWeaponLoadArray;
+	_output call summateArray;
+};
+summateArray = {
+	private "_output";
+	_output = 0;
+	{
+		_output = _output + _x;
+	} forEach _this;
+	_output;
+};
+//popFront = {
+//	_this deleteAt 0;
+//};
 lootBody = {
 	params ["_unit", "_body"];
 	private ["_currentWeapons", "_heldWeapons", "_holder"];
@@ -114,14 +174,15 @@ unitDropOffLoot = {
 	_unit playMove "AinvPercMstpSnonWnonDnon_Putdown_AmovPercMstpSnonWnonDnon";
 	sleep 1;
 	_result = [_unit getVariable ["DE_HELD_WEAPONS", []], _vehicle] call addWeaponsToCargo;
-	_unit setVariable ["DE_HELD_WEAPONS", _result]; //currently uncessesary because the "add_" command ignores cargo amount and will always be able to add all weapons. eg _result is always [] afterward
-	//possible workaround, use infinite "add_" command to add item to unit's backpack, then make unit "drop" action the item into the vehicle
-	// ^ won't work because drop action can only work with currently held weapons in a slot - would be too slow
-	//will have to go custom - get vehicle max load from config, calculate weight of cargo content and decide
+	if (count _result > 0) then {
+		_unit groupRadio "SentSupportNotAvailable";
+	};
+	_unit setVariable ["DE_HELD_WEAPONS", _result];
 };
 
 player addAction ["Loot all bodies", {
 	_unit = units player # 1;
+	_vehicle = vehicle player;
 	//unit does not act realistically in some situations, depending on how the bodies are arranged relative to the start position
 	//simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
 	//still fun as hell to watch though
@@ -131,9 +192,25 @@ player addAction ["Loot all bodies", {
 	{
 		if (!alive (_x # 1)) then { //out of concern and should be handled in a higher scope
 			if (!(weaponsItems _unit isEqualTo []) || {!(_unit getVariable ["DE_HELD_WEAPONS", []] isEqualTo [])}) then { //out of concern and should be handled in a higher scope
-				[_unit, _x # 1] call unitLootBody;
-				[_unit, vehicle player] call unitDropOffLoot;
+				if (!(_vehicle getVariable ["DE_FULL_VEHICLE", false])) then {
+					[_unit, _x # 1] call unitLootBody;
+					[_unit, _vehicle] call unitDropOffLoot;
+				};
 			};
 		};
 	} forEach _list;
 }, nil, 1, false, true];
+
+getLoad = {
+	systemChat format ["Load: %1\nLoadABS: %2", load _this, loadAbs _this];
+};
+/*
+[] spawn {
+	_vehicle = vehicle player;
+	while {true} do {
+		hint format ["Load: %1\nLoadABS: %2", load _vehicle, loadAbs _vehicle];
+	};
+};
+*/
+
+sleep 0.01;
