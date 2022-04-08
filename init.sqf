@@ -94,9 +94,6 @@ summateArray = {
 	} forEach _this;
 	_output;
 };
-//popFront = {
-//	_this deleteAt 0;
-//};
 lootBody = {
 	params ["_unit", "_body"];
 	private ["_currentWeapons", "_heldWeapons", "_holder"];
@@ -188,7 +185,6 @@ unitLoot = {
 	_unit setVariable ["DE_IS_LOOTING", false];
 };
 beginLootingLoop = {
-	//function does not assign the next body to unit - fix
 	params ["_units", "_bodies"];
 	private ["_leader", "_bodyAssigned", "_next"];
 	//systemChat str _bodies;
@@ -236,27 +232,11 @@ player addAction ["Squad loot", {
 	[units player, _toLoot] call beginLootingLoop;
 }, nil, 1, false, true];
 
+player addEventHandler ["GetInMan", {
+	params ["_unit", "_role", "_vehicle", "_turret"];
+	_unit setVariable ["DE_VEHICLE", _vehicle];	
+}];
 
-//player addAction ["Loot all bodies", {
-//	_unit = units player # 1;
-//	_vehicle = vehicle player;
-//	//unit does not act realistically in some situations, depending on how the bodies are arranged relative to the start position
-//	//simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
-//	//still fun as hell to watch though
-//	//recalculate list every iteration?? seems costly - look for alternative
-//	_list = (entities [["Man"], [], true, false]) apply { [_unit distance _x, _x] };
-//	_list sort true;
-//	{
-//		if (!alive (_x # 1)) then { //out of concern and should be handled in a higher scope
-//			if (!(weaponsItems _unit isEqualTo []) || {!(_unit getVariable ["DE_HELD_WEAPONS", []] isEqualTo [])}) then { //out of concern and should be handled in a higher scope
-//				if (!(_vehicle getVariable ["DE_FULL_VEHICLE", false])) then {
-//					[_unit, _x # 1] call unitLootBody;
-//					[_unit, _vehicle] call unitDropOffLoot;
-//				};
-//			};
-//		};
-//	} forEach _list;
-//}, nil, 1, false, true];
 
 getLoad = {
 	systemChat format ["Load: %1\nLoadABS: %2", load _this, loadAbs _this];
