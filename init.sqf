@@ -102,7 +102,7 @@ lootBody = {
 	private ["_currentWeapons", "_heldWeapons", "_holder"];
 	_currentWeapons = _body getVariable ["DE_HELD_WEAPONS", []];
 	_heldWeapons = weaponsItems _body;
-	_heldWeapons apply { _unit removeWeaponGlobal (_x # 0); };
+	_heldWeapons apply { _body removeWeaponGlobal (_x # 0); };
 	_holder = nearestObject [getPosATL _body, "WeaponHolderSimulated"];
 	if (!(isNull _holder)) then {
 		[_holder, _heldWeapons] call addWeaponsToArray;
@@ -172,32 +172,91 @@ unitDropOffLoot = {
 	_unit playMove "AinvPercMstpSnonWnonDnon_Putdown_AmovPercMstpSnonWnonDnon";
 	sleep 1;
 	_result = [_unit getVariable ["DE_HELD_WEAPONS", []], _vehicle] call addWeaponsToCargo;
-	if (count _result > 0) then {
-		_unit groupRadio "SentSupportNotAvailable";
-	};
 	_unit setVariable ["DE_HELD_WEAPONS", _result];
+	count _result == 0;
+};
+unitLoot = {
+	//attempts to loot a unit
+	params ["_unit", "_body"];
+	_unit setVariable ["DE_IS_LOOTING", true];
+	[_unit, _body] call unitLootBody;
+	_sucessful = [_unit, vehicle player] call unitDropOffLoot;
+	if (!_sucessful) then {
+		_unit groupRadio "SentSupportNotAvailable";
+		(leader _unit) setVariable ["DE_FULL_VEHICLE", true];
+	};
+	_unit setVariable ["DE_IS_LOOTING", false];
+};
+beginLootingLoop = {
+	//function does not assign the next body to unit - fix
+	params ["_units", "_bodies"];
+	private ["_leader", "_bodyAssigned", "_next"];
+	//systemChat str _bodies;
+	_leader = _units deleteAt 0;
+	_bodyCount = count _bodies;
+	for "_i" from 0 to _bodyCount do {
+		//hintSilent str _bodies;
+		_next = _bodies deleteAt 0;
+		//systemChat str _next;
+		_bodyAssigned = false;
+		if (!(_leader getVariable ["DE_FULL_VEHICLE", false])) then {
+			while {!_bodyAssigned} do {
+				{
+					if (!_bodyAssigned) then {
+						if (!(_x getVariable ["DE_IS_LOOTING", false])) then {
+							_bodyAssigned = true;
+							[_x, _next] spawn unitLoot;
+							sleep 0.05;
+							break;
+						};
+					};
+				} forEach _units;
+				if (!_bodyAssigned) then {
+					sleep 1;
+				}
+			};
+		} else {
+			break;
+		};
+	};
 };
 
-player addAction ["Loot all bodies", {
-	_unit = units player # 1;
-	_vehicle = vehicle player;
-	//unit does not act realistically in some situations, depending on how the bodies are arranged relative to the start position
-	//simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
-	//still fun as hell to watch though
-	//recalculate list every iteration?? seems costly - look for alternative
-	_list = (entities [["Man"], [], true, false]) apply { [_unit distance _x, _x] };
-	_list sort true;
-	{
-		if (!alive (_x # 1)) then { //out of concern and should be handled in a higher scope
-			if (!(weaponsItems _unit isEqualTo []) || {!(_unit getVariable ["DE_HELD_WEAPONS", []] isEqualTo [])}) then { //out of concern and should be handled in a higher scope
-				if (!(_vehicle getVariable ["DE_FULL_VEHICLE", false])) then {
-					[_unit, _x # 1] call unitLootBody;
-					[_unit, _vehicle] call unitDropOffLoot;
-				};
-			};
+player addAction ["Squad loot", {
+	_toLoot = entities [["Man"], [], true, false];
+	_index = 0;
+	for "_i" from 0 to (count _toLoot) do {
+		hintSilent str _toLoot;
+		if (alive (_toLoot # _index)) then {
+			_obj = _toLoot deleteAt _index;
+		} else {
+			_index = _index + 1;
 		};
-	} forEach _list;
+		sleep 1;
+	};
+	[units player, _toLoot] call beginLootingLoop;
 }, nil, 1, false, true];
+
+
+//player addAction ["Loot all bodies", {
+//	_unit = units player # 1;
+//	_vehicle = vehicle player;
+//	//unit does not act realistically in some situations, depending on how the bodies are arranged relative to the start position
+//	//simply runs to the closest body in-order from the time the action is used. Results in it sometimes running back and forth to loot rather than going from body-to-body
+//	//still fun as hell to watch though
+//	//recalculate list every iteration?? seems costly - look for alternative
+//	_list = (entities [["Man"], [], true, false]) apply { [_unit distance _x, _x] };
+//	_list sort true;
+//	{
+//		if (!alive (_x # 1)) then { //out of concern and should be handled in a higher scope
+//			if (!(weaponsItems _unit isEqualTo []) || {!(_unit getVariable ["DE_HELD_WEAPONS", []] isEqualTo [])}) then { //out of concern and should be handled in a higher scope
+//				if (!(_vehicle getVariable ["DE_FULL_VEHICLE", false])) then {
+//					[_unit, _x # 1] call unitLootBody;
+//					[_unit, _vehicle] call unitDropOffLoot;
+//				};
+//			};
+//		};
+//	} forEach _list;
+//}, nil, 1, false, true];
 
 getLoad = {
 	systemChat format ["Load: %1\nLoadABS: %2", load _this, loadAbs _this];
