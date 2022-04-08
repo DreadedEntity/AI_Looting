@@ -1,7 +1,7 @@
 # AI Looting Script Roadmap
 ## ASAP
-- [ ] Make edits to take advantage of saving player vehicle so player doesn't necessarily be in it
-- [ ] Higher-level scope to work with multiple units via faux queue and worker paradigm
+- [X] Make edits to take advantage of saving player vehicle so player doesn't necessarily be in it
+- [X] Higher-level scope to work with multiple units via faux queue and worker paradigm
 ## Fast follow
 - Standardize function names
 - Refactor functions to separate scripts and set up functions library

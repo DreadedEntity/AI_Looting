@@ -162,24 +162,34 @@ unitLootBody = {
 };
 unitDropOffLoot = {
 	params ["_unit", "_vehicle"];
-	private "_result";
+	private ["_result", "_output", "_leader", "_full"];
+	_leader = leader _unit;
+	if (isNil "_vehicle")  exitWith {false};
+	if (_leader getVariable ["DE_FULL_VEHICLE", false]) exitWith {false};
 	_unit doMove (getPosATL _vehicle);
-	waitUntil {moveToCompleted _unit};
+	waitUntil {moveToCompleted _unit || (_leader getVariable ["DE_FULL_VEHICLE", false])};
 	doStop _unit; //stop here prevents unit from making radio messages after doMove
+	if (_leader getVariable ["DE_FULL_VEHICLE", false]) exitWith {false};
 	_unit playMove "AinvPercMstpSnonWnonDnon_Putdown_AmovPercMstpSnonWnonDnon";
 	sleep 1;
+	if (_leader getVariable ["DE_FULL_VEHICLE", false]) exitWith {false};
 	_result = [_unit getVariable ["DE_HELD_WEAPONS", []], _vehicle] call addWeaponsToCargo;
 	_unit setVariable ["DE_HELD_WEAPONS", _result];
-	count _result == 0;
+	_output = count _result == 0;
+	if (!_output) then {
+		_unit groupRadio "SentSupportNotAvailable";
+		_leader setVariable ["DE_FULL_VEHICLE", true];
+	};
+	_output;
 };
 unitLoot = {
 	//attempts to loot a unit
 	params ["_unit", "_body"];
+	private "_successful";
 	_unit setVariable ["DE_IS_LOOTING", true];
 	[_unit, _body] call unitLootBody;
-	_sucessful = [_unit, vehicle player] call unitDropOffLoot;
+	_sucessful = [_unit, (leader _unit) getVariable "DE_VEHICLE"] call unitDropOffLoot;
 	if (!_sucessful) then {
-		_unit groupRadio "SentSupportNotAvailable";
 		(leader _unit) setVariable ["DE_FULL_VEHICLE", true];
 	};
 	_unit setVariable ["DE_IS_LOOTING", false];
@@ -216,19 +226,21 @@ beginLootingLoop = {
 		};
 	};
 };
-
-player addAction ["Squad loot", {
-	_toLoot = entities [["Man"], [], true, false];
+removeAliveObjects = {
+	private "_index";
 	_index = 0;
-	for "_i" from 0 to (count _toLoot) do {
-		hintSilent str _toLoot;
-		if (alive (_toLoot # _index)) then {
-			_obj = _toLoot deleteAt _index;
+	for "_i" from 0 to (count _this) do {
+		if (alive (_this # _index)) then {
+			_this deleteAt _index;
 		} else {
 			_index = _index + 1;
 		};
-		sleep 1;
 	};
+	_this;
+};
+
+player addAction ["Squad loot", {
+	_toLoot = (entities [["Man"], [], true, false]) call removeAliveObjects;
 	[units player, _toLoot] call beginLootingLoop;
 }, nil, 1, false, true];
 
