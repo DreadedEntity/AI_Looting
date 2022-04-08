@@ -194,7 +194,7 @@ unitLoot = {
 	};
 	_unit setVariable ["DE_IS_LOOTING", false];
 };
-beginLootingLoop = {
+orderLooting = {
 	params ["_units", "_bodies"];
 	private ["_leader", "_bodyAssigned", "_next"];
 	_leader = _units deleteAt 0;
@@ -249,7 +249,7 @@ checkLeaderVehicle = {
 
 player addAction ["Squad loot", {
 	_toLoot = (entities [["Man"], [], true, false]) call removeAliveObjects;
-	[units player, _toLoot] call beginLootingLoop;
+	[units player, _toLoot] call orderLooting;
 }, nil, 1, false, true];
 
 player addEventHandler ["GetInMan", {
