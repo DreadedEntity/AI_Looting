@@ -1,7 +1,7 @@
 # AI Looting Script Roadmap
 ## ASAP
-- [X] Make edits to take advantage of saving player vehicle so player doesn't necessarily be in it
-- [X] Higher-level scope to work with multiple units via faux queue and worker paradigm
+- [ ] Handle issue of last player vehicle possibly being too far away and units trying to run KM's away to drop off loot
+- [ ] Handle issue of last player vehicle being destroyed, then loot order given
 ## Fast follow
 - Standardize function names
 - Refactor functions to separate scripts and set up functions library
@@ -16,3 +16,5 @@
 - [X] Decide method to store current/last leader vehicle so AI can drop off loot
   - Currently, vehicle is sent at the time action is run and does not change
 - [X] Calculate vehicle used cargo to determine if new weapon can be added
+- [X] Make edits to take advantage of saving player vehicle so player doesn't necessarily be in it
+- [X] Higher-level scope to work with multiple units via faux queue and worker paradigm
