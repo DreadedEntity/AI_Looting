@@ -197,13 +197,11 @@ unitLoot = {
 beginLootingLoop = {
 	params ["_units", "_bodies"];
 	private ["_leader", "_bodyAssigned", "_next"];
-	//systemChat str _bodies;
 	_leader = _units deleteAt 0;
+	[_leader, 500] call checkLeaderVehicle;
 	_bodyCount = count _bodies;
 	for "_i" from 0 to _bodyCount do {
-		//hintSilent str _bodies;
 		_next = _bodies deleteAt 0;
-		//systemChat str _next;
 		_bodyAssigned = false;
 		if (!(_leader getVariable ["DE_FULL_VEHICLE", false])) then {
 			while {!_bodyAssigned} do {
@@ -237,6 +235,16 @@ removeAliveObjects = {
 		};
 	};
 	_this;
+};
+checkLeaderVehicle = {
+	params ["_leader", "_distance"];
+	private "_vehicle";
+	_vehicle = _leader getVariable "DE_VEHICLE";
+	if (!(isNil "_vehicle")) then {
+		if (!alive _vehicle || (_leader distance2D _vehicle) > _distance) then {
+			_leader setVariable ["DE_VEHICLE", nil];
+		};
+	};
 };
 
 player addAction ["Squad loot", {

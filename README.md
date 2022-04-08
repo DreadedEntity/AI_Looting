@@ -1,17 +1,17 @@
 # AI Looting Script Roadmap
 ## ASAP
-- [ ] Handle issue of last player vehicle possibly being too far away and units trying to run KM's away to drop off loot
-- [ ] Handle issue of last player vehicle being destroyed, then loot order given
+- [X] Handle issue of last player vehicle possibly being too far away and units trying to run KM's away to drop off loot
+- [X] Handle issue of last player vehicle being destroyed, then loot order given
+- [X] AI just holds loot if player vehicle gets destroyed or never got in one??
 ## Fast follow
 - Standardize function names
 - Refactor functions to separate scripts and set up functions library
 ## Future
 - Units can loot all items from bodies
 - Script options to limit what gets looted
-- Looting AI can onlly store up to his extra load from clothing??
+- Looting AI can only store up to his extra load from clothing??
 - If the above, multi-trip looting
 - Looting from other sources? I.e cars
-- AI just holds loot if player vehicle gets destroyed or never got in one??
 # Completed tasks
 - [X] Decide method to store current/last leader vehicle so AI can drop off loot
   - Currently, vehicle is sent at the time action is run and does not change
