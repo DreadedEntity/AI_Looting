@@ -3,6 +3,10 @@
 //    Created by: DreadedEntity    //
 /////////////////////////////////////
 
+diag_log text "------------------------------ MISSION CODE BEGINS ------------------------------";
+
+sleep 0.01;
+
 removeRangefinderArray = {
 	private "_remove";
 	_remove = _this findIf { (_x # 0) == "Rangefinder" };
@@ -136,7 +140,7 @@ unitHasLoot = {
 	if (_this getVariable ["DE_HELD_WEAPONS", []] isEqualTo []) then {
 		_output = false;
 	} else {
-		systemChat "unitHasLoot: Unit already has loot";
+		//systemChat "unitHasLoot: Unit already has loot";
 	};
 	_output;
 };
@@ -145,7 +149,7 @@ isTargetLiving = {
 	private "_output";
 	_output = true;
 	if (alive _this) then {
-		systemChat "isTargetLiving: Alive target will not let you loot them";
+		//systemChat "isTargetLiving: Alive target will not let you loot them";
 	} else {
 		_output = false;
 	};
@@ -158,12 +162,14 @@ unitLootBody = {
 	_relativeDir = _body getDir _unit;
 	_pos = _body getPos [1, _relativeDir];
 	_unit doMove _pos;
+	//_unit setPosATL _pos;
 	waitUntil {moveToCompleted _unit};
 	_unit setFormDir (_unit getDir _body);
 	doStop _unit; //stop here prevents unit from making radio messages after doMove
 	_unit playMove "AinvPknlMstpSnonWnonDnon_AinvPknlMstpSnonWnonDnon_medic";
 	sleep 1;
 	[_unit, _body] call lootBody;
+	_body setVariable ["DE_IS_LOOTED", true];
 	_leader = leader _unit;
 	_unit setFormDir (_unit getDir _leader);
 	_unit doFollow _leader;
@@ -175,6 +181,7 @@ unitDropOffLoot = {
 	if (isNil "_vehicle")  exitWith {false};
 	if (_leader getVariable ["DE_FULL_VEHICLE", false]) exitWith {false};
 	_unit doMove (getPosATL _vehicle);
+	//_unit setPosATL (getPosATL _vehicle);
 	waitUntil {moveToCompleted _unit || (_leader getVariable ["DE_FULL_VEHICLE", false])};
 	doStop _unit; //stop here prevents unit from making radio messages after doMove
 	if (_leader getVariable ["DE_FULL_VEHICLE", false]) exitWith {false};
@@ -196,15 +203,23 @@ unitLoot = {
 	private "_successful";
 	_successful = true;
 	_unit setVariable ["DE_IS_LOOTING", true];
+	diag_log formatText ["Set DE_IS_LOOTING true on unit: %1", _unit];
 	if (_unit call unitHasLoot) then {
+		diag_log formatText ["%1 attempting to drop off previously held loot", _unit];
 		_sucessful = [_unit, (leader _unit) getVariable "DE_VEHICLE"] call unitDropOffLoot;
+		diag_log formatText ["%1 tried to drop off prevously held loot, result: %2", _unit, _successful];
 	} else {
 		if (_successful) then {
+			diag_log formatText ["Enter unitLootBody with unit: %1", _unit];
 			[_unit, _body] call unitLootBody;
+			diag_log formatText ["Exit unitLootBody with unit: %1", _unit];
+			diag_log formatText ["Enter unitDropOffLoot with unit: %1", _unit];
 			[_unit, (leader _unit) getVariable "DE_VEHICLE"] call unitDropOffLoot;
+			diag_log formatText ["Enter unitDropOffLoot with unit: %1", _unit];
 		};
 	};
 	_unit setVariable ["DE_IS_LOOTING", false];
+	diag_log formatText ["Set DE_IS_LOOTING false on unit: %1", _unit];
 };
 orderLooting = {
 	params ["_units", "_bodies"];
@@ -214,14 +229,18 @@ orderLooting = {
 	_bodyCount = (count _bodies) - 1;
 	for "_i" from 0 to _bodyCount do {
 		_next = _bodies deleteAt 0;
+		diag_log formatText ["Next body to assign: %1", _next];
 		_bodyAssigned = false;
 		if (!(_leader getVariable ["DE_FULL_VEHICLE", false])) then {
 			while {!_bodyAssigned} do {
 				{
 					if (!_bodyAssigned) then {
 						if (!(_x getVariable ["DE_IS_LOOTING", false])) then {
+							diag_log formatText ["Assigned %1 to be looted by %2", _next, _x];
 							_bodyAssigned = true;
+							diag_log formatText ["Enter unitLoot with unit: %1", _x];
 							[_x, _next] spawn unitLoot;
+							diag_log formatText ["Exit unitLoot with unit: %1", _x];
 							sleep 0.05;
 							break;
 						};
@@ -232,22 +251,41 @@ orderLooting = {
 				};
 			};
 		} else {
+			diag_log formatText ["Could not assign %1 to unit because vehicle was full", _next];
 			break;
 		};
 	};
+	diag_log text "There are no more units to loot";
 	systemChat "Looting done";
 };
+removeUnfitObjects = {
+	_this call removeAliveObjects;
+	_this call removeLootedObjects;
+	_this;
+};
 removeAliveObjects = {
-	private "_index";
+	private ["_index", "_removed"];
 	_index = 0;
 	for "_i" from 0 to (count _this) do {
 		if (alive (_this # _index)) then {
-			_this deleteAt _index;
+			_removed = _this deleteAt _index;
+			diag_log formatText ["Removed living unit: %1", _removed];
 		} else {
 			_index = _index + 1;
 		};
 	};
-	_this;
+};
+removeLootedObjects = {
+	private ["_index", "_removed"];
+	_index = 0;
+	for "_i" from 0 to (count _this) do {
+		if ((_this # _index) getVariable ["DE_IS_LOOTED", false]) then {
+			_removed = _this deleteAt _index;
+			diag_log formatText ["Removed looted unit: %1", _removed];
+		} else {
+			_index = _index + 1;
+		};
+	};
 };
 checkLeaderVehicle = {
 	params ["_leader", "_distance"];
@@ -264,6 +302,23 @@ getLoad = {
 };
 initialize = {
 	[] spawn {
+		diag_log text "Looting script initialization started";
+		player addAction ["<t color='#FFFF00' shadow='2' underline='1'>Squad loot</t>", {
+			diag_log text "Looting action used";
+			_toLoot = (entities [["Man"], [], true, false]) call removeUnfitObjects;
+			diag_log text "Begin orderLooting";
+			[units player, _toLoot] call orderLooting;
+			diag_log text "Exit orderLooting";
+		}, nil, 1, false, true];
+		diag_log text "Loot action added";
+		
+		player addEventHandler ["GetInMan", {
+			params ["_unit", "_role", "_vehicle", "_turret"];
+			_unit setVariable ["DE_VEHICLE", _vehicle];	
+		}];
+		diag_log text "Player event handler added";
+		
+		diag_log text "Unit PUT event handler loop beginning";
 		while {true} do {
 			allUnits apply {
 				if (!(_x getVariable ["DE_PUT_EH_SET", false])) then {
@@ -277,21 +332,10 @@ initialize = {
 					_x setVariable ["DE_PUT_EH_SET", true];
 				};
 			};
+			sleep 1;
 		};
-		sleep 1;
 	};
 };
 
 call initialize;
-
-player addAction ["<t color='#FFFF00'>Squad loot</t>", {
-	_toLoot = (entities [["Man"], [], true, false]) call removeAliveObjects;
-	[units player, _toLoot] call orderLooting;
-}, nil, 1, false, true];
-
-player addEventHandler ["GetInMan", {
-	params ["_unit", "_role", "_vehicle", "_turret"];
-	_unit setVariable ["DE_VEHICLE", _vehicle];	
-}];
-
-sleep 0.01;
+player addRating 99999999;
