@@ -1,3 +1,8 @@
+/////////////////////////////////////
+// Function file for Armed Assault //
+//    Created by: DreadedEntity    //
+/////////////////////////////////////
+
 removeRangefinderArray = {
 	private "_remove";
 	_remove = _this findIf { (_x # 0) == "Rangefinder" };
@@ -100,7 +105,10 @@ lootBody = {
 	_currentWeapons = _body getVariable ["DE_HELD_WEAPONS", []];
 	_heldWeapons = weaponsItems _body;
 	_heldWeapons apply { _body removeWeaponGlobal (_x # 0); };
-	_holder = nearestObject [getPosATL _body, "WeaponHolderSimulated"];
+	_holder = _unit getVariable "DE_WEAPONHOLDER";
+	if (isNil "_holder") then {
+		_holder = nearestObject [getPosATL _body, "WeaponHolderSimulated"];
+	};
 	if (!(isNull _holder)) then {
 		[_holder, _heldWeapons] call addWeaponsToArray;
 	};
@@ -186,11 +194,15 @@ unitLoot = {
 	//attempts to loot a unit
 	params ["_unit", "_body"];
 	private "_successful";
+	_successful = true;
 	_unit setVariable ["DE_IS_LOOTING", true];
-	[_unit, _body] call unitLootBody;
-	_sucessful = [_unit, (leader _unit) getVariable "DE_VEHICLE"] call unitDropOffLoot;
-	if (!_sucessful) then {
-		(leader _unit) setVariable ["DE_FULL_VEHICLE", true];
+	if (_unit call unitHasLoot) then {
+		_sucessful = [_unit, (leader _unit) getVariable "DE_VEHICLE"] call unitDropOffLoot;
+	} else {
+		if (_successful) then {
+			[_unit, _body] call unitLootBody;
+			[_unit, (leader _unit) getVariable "DE_VEHICLE"] call unitDropOffLoot;
+		};
 	};
 	_unit setVariable ["DE_IS_LOOTING", false];
 };
@@ -199,7 +211,7 @@ orderLooting = {
 	private ["_leader", "_bodyAssigned", "_next"];
 	_leader = _units deleteAt 0;
 	[_leader, 500] call checkLeaderVehicle;
-	_bodyCount = count _bodies;
+	_bodyCount = (count _bodies) - 1;
 	for "_i" from 0 to _bodyCount do {
 		_next = _bodies deleteAt 0;
 		_bodyAssigned = false;
@@ -217,12 +229,13 @@ orderLooting = {
 				} forEach _units;
 				if (!_bodyAssigned) then {
 					sleep 1;
-				}
+				};
 			};
 		} else {
 			break;
 		};
 	};
+	systemChat "Looting done";
 };
 removeAliveObjects = {
 	private "_index";
@@ -246,8 +259,32 @@ checkLeaderVehicle = {
 		};
 	};
 };
+getLoad = {
+	systemChat format ["Load: %1\nLoadABS: %2", load _this, loadAbs _this];
+};
+initialize = {
+	[] spawn {
+		while {true} do {
+			allUnits apply {
+				if (!(_x getVariable ["DE_PUT_EH_SET", false])) then {
+					_x addEventHandler ["Put", {
+						params ["_unit", "_container", "_item"];
+						if (typeOf _container == "WeaponHolderSimulated" && {_item isKindof ["Rifle", configFile >> "CfgWeapons"]}) then {
+							_unit setVariable ["DE_WEAPONHOLDER", _container];
+							systemChat "Event handler ran";
+						};
+					}];
+					_x setVariable ["DE_PUT_EH_SET", true];
+				};
+			};
+		};
+		sleep 1;
+	};
+};
 
-player addAction ["Squad loot", {
+call initialize;
+
+player addAction ["<t color='#FFFF00'>Squad loot</t>", {
 	_toLoot = (entities [["Man"], [], true, false]) call removeAliveObjects;
 	[units player, _toLoot] call orderLooting;
 }, nil, 1, false, true];
@@ -256,18 +293,5 @@ player addEventHandler ["GetInMan", {
 	params ["_unit", "_role", "_vehicle", "_turret"];
 	_unit setVariable ["DE_VEHICLE", _vehicle];	
 }];
-
-
-getLoad = {
-	systemChat format ["Load: %1\nLoadABS: %2", load _this, loadAbs _this];
-};
-/*
-[] spawn {
-	_vehicle = vehicle player;
-	while {true} do {
-		hint format ["Load: %1\nLoadABS: %2", load _vehicle, loadAbs _vehicle];
-	};
-};
-*/
 
 sleep 0.01;

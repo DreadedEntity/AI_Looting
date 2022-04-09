@@ -3,6 +3,7 @@
 - [X] Handle issue of last player vehicle possibly being too far away and units trying to run KM's away to drop off loot
 - [X] Handle issue of last player vehicle being destroyed, then loot order given
 - [X] AI just holds loot if player vehicle gets destroyed or never got in one??
+- [X] AI will loot the actual weapon holder that a dead unit drops or nearest one if it can't find one
 ## Fast follow
 - Standardize function names
 - Refactor functions to separate scripts and set up functions library
